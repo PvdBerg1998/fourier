@@ -12,7 +12,7 @@ const OFFSET_FACTOR: f32 = (1.0 - SCALE_FACTOR) / 2.0;
 const STARTING_N: isize = 16;
 const N_CHANGE: isize = 2;
 
-const TIME_STEPS: usize = 2500;
+const TIME_STEPS: usize = 1500;
 
 const PATH_WIDTH: u16 = 3;
 const VECTOR_WIDTH: u16 = 1;
@@ -68,7 +68,7 @@ impl Visualizer {
     fn recalculate_coefficients(&mut self) {
         self.coefficients = (-self.n..=self.n)
             .into_par_iter()
-            .map(|n| (n, calculate_fourier_coefficient(functions::step, n)))
+            .map(|n| (n, calculate_fourier_coefficient(functions::cube, n)))
             .collect::<Vec<_>>();
     }
 
