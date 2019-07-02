@@ -9,13 +9,43 @@ use rayon::prelude::*;
 const SCALE_FACTOR: f32 = 0.4;
 const OFFSET_FACTOR: f32 = (1.0 - SCALE_FACTOR) / 2.0;
 
-const STARTING_N: isize = 4;
-const N_CHANGE: isize = 1;
+const STARTING_N: isize = 32;
+const N_CHANGE: isize = 8;
 
-const TIME_STEPS: usize = 300;
+const TIME_STEPS: usize = 2500;
 
-const LINE_WIDTH: u16 = 2;
+const PATH_WIDTH: u16 = 3;
 const VECTOR_WIDTH: u16 = 1;
+const VECTOR_ARROW_SIZE: f32 = 1.5;
+
+// 595756
+const BACKGROUND_COLOR: Color = Color {
+    r: 89.0 / 255.0,
+    g: 87.0 / 255.0,
+    b: 86.0 / 255.0,
+    a: 1.0,
+};
+// BB8254
+const PATH_COLOR: Color = Color {
+    r: 187.0 / 255.0,
+    g: 130.0 / 255.0,
+    b: 84.0 / 255.0,
+    a: 1.0,
+};
+// E5D09D
+const VECTOR_COLOR: Color = Color {
+    r: 229.0 / 255.0,
+    g: 208.0 / 255.0,
+    b: 157.0 / 255.0,
+    a: 1.0,
+};
+// C2C1A8
+const VECTOR_CIRCLE_COLOR: Color = Color {
+    r: 194.0 / 255.0,
+    g: 193.0 / 255.0,
+    b: 168.0 / 255.0,
+    a: 1.0,
+};
 
 pub struct Visualizer {
     coefficients: Vec<(isize, Complex)>,
@@ -56,7 +86,7 @@ impl Visualizer {
             Prepare canvas
         */
         let mut target = self.canvas.as_target(gpu);
-        target.clear(Color::BLACK);
+        target.clear(BACKGROUND_COLOR);
 
         /*
             Render fourier mesh at all previously seen points
@@ -71,7 +101,7 @@ impl Visualizer {
             .map(|c| Point::new(c.re as f32, c.im as f32))
             .map(scale_pos)
             .collect::<Vec<_>>();
-        fourier_mesh.stroke(Shape::Polyline { points }, Color::WHITE, LINE_WIDTH);
+        fourier_mesh.stroke(Shape::Polyline { points }, PATH_COLOR, PATH_WIDTH);
         fourier_mesh.draw(&mut target);
 
         /*
@@ -100,8 +130,16 @@ impl Visualizer {
                 Shape::Polyline {
                     points: vec![last_pos_normalized, new_pos_normalized],
                 },
-                Color::from_rgb(0, 255, 0),
+                VECTOR_COLOR,
                 VECTOR_WIDTH,
+            );
+            // Vector "arrow" @todo improve this
+            mesh.fill(
+                Shape::Circle {
+                    center: new_pos_normalized,
+                    radius: VECTOR_ARROW_SIZE,
+                },
+                VECTOR_COLOR,
             );
             // Vector path circle
             mesh.stroke(
@@ -109,7 +147,7 @@ impl Visualizer {
                     center: last_pos_normalized,
                     radius: vector_norm,
                 },
-                Color::from_rgb(0, 0, 255),
+                VECTOR_CIRCLE_COLOR,
                 VECTOR_WIDTH,
             );
             mesh.draw(&mut target);
@@ -121,7 +159,7 @@ impl Visualizer {
 }
 
 impl Game for Visualizer {
-    const TICKS_PER_SECOND: u16 = 20;
+    const TICKS_PER_SECOND: u16 = 60;
     type Input = KeyboardAndMouse;
     type LoadingScreen = ();
 
@@ -166,7 +204,7 @@ impl Game for Visualizer {
     }
 
     fn draw(&mut self, frame: &mut Frame, _timer: &Timer) {
-        frame.clear(Color::from_rgb(255, 0, 0));
+        frame.clear(Color::from_rgb(0, 0, 0));
 
         self.draw_canvas(frame.gpu());
         self.canvas.draw(
