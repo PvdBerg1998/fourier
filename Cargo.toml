@@ -4,6 +4,10 @@ version = "0.1.0"
 authors = ["PvdBerg1998 <PvdBerg1998@users.noreply.github.com>"]
 edition = "2018"
 
+[patch.crates-io]
+coffee = { git = "https://github.com/hecrj/coffee", branch = "master" }
+
 [dependencies]
-coffee = { version = "^0.3.1", features = ["vulkan"] }
+coffee = { version = "^0.3.1", features = ["vulkan", "debug"] }
 num-complex = "^0.2.3"
+rayon = "^1.1.0"

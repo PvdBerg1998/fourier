@@ -1,3 +1,5 @@
+pub mod functions;
+
 use num_complex::Complex64;
 
 pub type Real = f64;
@@ -38,18 +40,6 @@ pub fn calculate_fourier_coefficient(f: impl Fn(Real) -> Complex, n: isize) -> C
     let real_part = integrate(real_integral, T_START, T_END, T_STEP);
     let imaginary_part = integrate(imaginary_integral, T_START, T_END, T_STEP);
     Complex::new(real_part, imaginary_part)
-}
-
-pub fn step(t: Real) -> Complex {
-    if t < 0.25 {
-        Complex::new(t, 0.0)
-    } else if t < 0.5 {
-        Complex::new(t, 1.0)
-    } else if t < 0.75 {
-        Complex::new(t, -1.0)
-    } else {
-        Complex::new(t, 0.0)
-    }
 }
 
 pub fn superposition(coefficients: &[(isize, Complex)], t: Real) -> Complex {
