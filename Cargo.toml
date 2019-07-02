@@ -1,0 +1,10 @@
+[package]
+name = "fourier"
+version = "0.1.0"
+authors = ["PvdBerg1998 <PvdBerg1998@users.noreply.github.com>"]
+edition = "2018"
+
+[dependencies]
+coffee = { version = "^0.3.1", features = ["vulkan"] }
+num-complex = "^0.2.3"
+quadrature = "^0.1.2"
