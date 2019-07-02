@@ -6,7 +6,7 @@ use coffee::load::Task;
 use coffee::{Game, Timer};
 
 const STARTING_N: isize = 20;
-const TIME_STEPS: usize = 2000;
+const TIME_STEPS: usize = 500;
 const LINE_WIDTH: u16 = 2;
 
 pub struct Visualizer {

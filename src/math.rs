@@ -1,5 +1,5 @@
 use num_complex::Complex64;
-use quadrature::integrate;
+use quadrature::clenshaw_curtis::integrate;
 
 pub type Real = f64;
 pub type Complex = Complex64;
