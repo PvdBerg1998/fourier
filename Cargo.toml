@@ -7,4 +7,3 @@ edition = "2018"
 [dependencies]
 coffee = { version = "^0.3.1", features = ["vulkan"] }
 num-complex = "^0.2.3"
-quadrature = "^0.1.2"

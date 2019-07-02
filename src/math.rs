@@ -1,5 +1,4 @@
 use num_complex::Complex64;
-use quadrature::clenshaw_curtis::integrate;
 
 pub type Real = f64;
 pub type Complex = Complex64;
@@ -34,10 +33,10 @@ pub fn calculate_fourier_coefficient(f: impl Fn(Real) -> Complex, n: isize) -> C
 
     const T_START: Real = 0.0;
     const T_END: Real = 1.0;
-    const TARGET_ERR: Real = 1e-12;
+    const T_STEP: Real = 1e-4;
 
-    let real_part = integrate(real_integral, T_START, T_END, TARGET_ERR).integral;
-    let imaginary_part = integrate(imaginary_integral, T_START, T_END, TARGET_ERR).integral;
+    let real_part = integrate(real_integral, T_START, T_END, T_STEP);
+    let imaginary_part = integrate(imaginary_integral, T_START, T_END, T_STEP);
     Complex::new(real_part, imaginary_part)
 }
 
@@ -60,4 +59,18 @@ pub fn superposition(coefficients: &[(isize, Complex)], t: Real) -> Complex {
             coefficient * Complex::from_polar(&1.0, &(2.0 * std::f64::consts::PI * *n as Real * t));
     }
     sum
+}
+
+pub fn integrate(f: impl Fn(Real) -> Real, a: Real, b: Real, step: Real) -> Real {
+    let mut acc = 0.0;
+    let mut x = a;
+    while x < b - step {
+        let x1 = x;
+        let x2 = x + step;
+
+        acc += step * (f(x1) + f(x2)) / 2.0;
+
+        x = x2;
+    }
+    acc
 }
