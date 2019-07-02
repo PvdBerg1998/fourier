@@ -45,10 +45,13 @@ pub fn calculate_fourier_coefficient(f: impl Fn(Real) -> Complex, n: isize) -> C
 pub fn superposition(coefficients: &[(isize, Complex)], t: Real) -> Complex {
     let mut sum = Complex::new(0.0, 0.0);
     for (n, coefficient) in coefficients {
-        sum +=
-            coefficient * Complex::from_polar(&1.0, &(2.0 * std::f64::consts::PI * *n as Real * t));
+        sum += eval_term(*coefficient, *n, t);
     }
     sum
+}
+
+pub fn eval_term(coefficient: Complex, n: isize, t: Real) -> Complex {
+    coefficient * Complex::from_polar(&1.0, &(2.0 * std::f64::consts::PI * n as Real * t))
 }
 
 pub fn integrate(f: impl Fn(Real) -> Real, a: Real, b: Real, step: Real) -> Real {
