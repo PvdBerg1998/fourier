@@ -6,11 +6,11 @@ use coffee::load::Task;
 use coffee::{Game, Timer};
 use rayon::prelude::*;
 
-const SCALE_FACTOR: f32 = 0.75;
+const SCALE_FACTOR: f32 = 0.6;
 const OFFSET_FACTOR: f32 = (1.0 - SCALE_FACTOR) / 2.0;
 
-const STARTING_N: isize = 32;
-const N_CHANGE: isize = 8;
+const STARTING_N: isize = 16;
+const N_CHANGE: isize = 2;
 
 const TIME_STEPS: usize = 2500;
 
@@ -19,35 +19,35 @@ const VECTOR_WIDTH: u16 = 1;
 const VECTOR_ARROW_SIZE: f32 = 2.0;
 const BORDER_WIDTH: u16 = 2;
 
-// 595756
+// #595756
 const BACKGROUND_COLOR: Color = Color {
     r: 89.0 / 255.0,
     g: 87.0 / 255.0,
     b: 86.0 / 255.0,
     a: 1.0,
 };
-// BB8254
+// #BB8254
 const PATH_COLOR: Color = Color {
     r: 187.0 / 255.0,
     g: 130.0 / 255.0,
     b: 84.0 / 255.0,
     a: 1.0,
 };
-// E5D09D
+// #E5D09D
 const VECTOR_COLOR: Color = Color {
     r: 229.0 / 255.0,
     g: 208.0 / 255.0,
     b: 157.0 / 255.0,
     a: 1.0,
 };
-// C2C1A8
+// #807F6E
 const VECTOR_CIRCLE_COLOR: Color = Color {
-    r: 194.0 / 255.0,
-    g: 193.0 / 255.0,
-    b: 168.0 / 255.0,
+    r: 128.0 / 255.0,
+    g: 127.0 / 255.0,
+    b: 110.0 / 255.0,
     a: 1.0,
 };
-// D4D388
+// #D4D388
 const BORDER_COLOR: Color = Color {
     r: 212.0 / 255.0,
     g: 211.0 / 255.0,
@@ -60,13 +60,15 @@ pub struct Visualizer {
     canvas: Canvas,
     n: isize,
     progress: usize,
+    current_canvas_center: Point,
+    zoom_factor: u16,
 }
 
 impl Visualizer {
     fn recalculate_coefficients(&mut self) {
         self.coefficients = (-self.n..=self.n)
             .into_par_iter()
-            .map(|n| (n, calculate_fourier_coefficient(functions::sin, n)))
+            .map(|n| (n, calculate_fourier_coefficient(functions::step, n)))
             .collect::<Vec<_>>();
     }
 
@@ -164,21 +166,31 @@ impl Visualizer {
             last_pos = new_pos;
         }
 
-        /*
-            Render container box
-        */
-        let mut mesh = Mesh::new();
-        mesh.stroke(
-            Shape::Rectangle(Rectangle {
-                x: width * OFFSET_FACTOR,
-                y: height * OFFSET_FACTOR,
-                width: width * SCALE_FACTOR,
-                height: height * SCALE_FACTOR,
-            }),
-            BORDER_COLOR,
-            BORDER_WIDTH,
-        );
-        mesh.draw(&mut target);
+        if self.zoom_factor > 1 {
+            // Center camera at last vector
+            self.current_canvas_center =
+                scale_pos(Point::new(last_pos.re as f32, last_pos.im as f32));
+        } else {
+            // Center camera in the middle
+            // @fixme otherwise we view outside the canvas
+            self.current_canvas_center = Point::new(width / 2.0, height / 2.0);
+
+            /*
+                Render container box
+            */
+            let mut mesh = Mesh::new();
+            mesh.stroke(
+                Shape::Rectangle(Rectangle {
+                    x: width * OFFSET_FACTOR,
+                    y: height * OFFSET_FACTOR,
+                    width: width * SCALE_FACTOR,
+                    height: height * SCALE_FACTOR,
+                }),
+                BORDER_COLOR,
+                BORDER_WIDTH,
+            );
+            mesh.draw(&mut target);
+        }
     }
 }
 
@@ -196,13 +208,19 @@ impl Game for Visualizer {
                 canvas: Canvas::new(gpu, width as u16, height as u16)?,
                 n: STARTING_N,
                 progress: 0,
+                current_canvas_center: Point::new(0.0, 0.0),
+                zoom_factor: 1,
             };
             v.recalculate_coefficients();
             Ok(v)
         })
     }
 
-    fn interact(&mut self, input: &mut Self::Input, _window: &mut Window) {
+    fn interact(&mut self, input: &mut Self::Input, window: &mut Window) {
+        let width = window.width() as u16;
+        let height = window.height() as u16;
+
+        // Change N
         if input.was_key_released(KeyCode::Up) {
             self.n += N_CHANGE;
             self.progress = 0;
@@ -214,6 +232,27 @@ impl Game for Visualizer {
                 self.progress = 0;
                 println!("Decreased n to {}", self.n);
                 self.recalculate_coefficients();
+            }
+        }
+
+        // Zoom
+        if input.was_key_released(KeyCode::Right) {
+            self.zoom_factor += 1;
+            self.canvas = Canvas::new(
+                window.gpu(),
+                width * self.zoom_factor,
+                height * self.zoom_factor,
+            )
+            .unwrap();
+        } else if input.was_key_released(KeyCode::Left) {
+            if self.zoom_factor > 1 {
+                self.zoom_factor -= 1;
+                self.canvas = Canvas::new(
+                    window.gpu(),
+                    width * self.zoom_factor,
+                    height * self.zoom_factor,
+                )
+                .unwrap();
             }
         }
     }
@@ -231,8 +270,15 @@ impl Game for Visualizer {
         frame.clear(Color::from_rgb(0, 0, 0));
 
         self.draw_canvas(frame.gpu());
+        let canvas_camera = Rectangle {
+            x: (self.current_canvas_center.x - frame.width() / 2.0) / self.canvas.width() as f32,
+            y: (self.current_canvas_center.y - frame.height() / 2.0) / self.canvas.height() as f32,
+            width: frame.width() / self.canvas.width() as f32,
+            height: frame.height() / self.canvas.height() as f32,
+        };
         self.canvas.draw(
             Quad {
+                source: canvas_camera,
                 size: (frame.width(), frame.height()),
                 ..Quad::default()
             },
