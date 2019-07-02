@@ -68,7 +68,7 @@ impl Visualizer {
     fn recalculate_coefficients(&mut self) {
         self.coefficients = (-self.n..=self.n)
             .into_par_iter()
-            .map(|n| (n, calculate_fourier_coefficient(functions::cube, n)))
+            .map(|n| (n, calculate_fourier_coefficient(functions::tent, n)))
             .collect::<Vec<_>>();
     }
 

@@ -7,7 +7,7 @@ use coffee::Game;
 fn main() {
     visualize::Visualizer::run(WindowSettings {
         title: String::from("Fourier coefficients"),
-        size: (1280, 1024),
+        size: (1024, 1024),
         resizable: false,
         fullscreen: false,
     })

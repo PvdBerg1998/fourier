@@ -28,6 +28,14 @@ pub fn cube(t: Real) -> Complex {
     }
 }
 
+pub fn tent(t: Real) -> Complex {
+    if t < 0.5 {
+        Complex::new(t, 1.0 - (t * 2.0))
+    } else {
+        Complex::new(t, (t - 0.5) * 2.0)
+    }
+}
+
 pub fn diagonal(t: Real) -> Complex {
     Complex::new(t, t)
 }

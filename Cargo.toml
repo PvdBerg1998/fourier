@@ -8,6 +8,6 @@ edition = "2018"
 coffee = { git = "https://github.com/hecrj/coffee", branch = "master" }
 
 [dependencies]
-coffee = { version = "^0.3.1", features = ["vulkan", "debug"] }
+coffee = { version = "^0.3.1", features = ["vulkan"] }
 num-complex = "^0.2.3"
 rayon = "^1.1.0"
