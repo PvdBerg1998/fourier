@@ -1,12 +1,12 @@
 use crate::math::*;
-use coffee::graphics::{Canvas, Color, Frame, Gpu, Mesh, Point, Quad, Shape, Vector, Window};
+use coffee::graphics::*;
 use coffee::input::keyboard::KeyCode;
 use coffee::input::KeyboardAndMouse;
 use coffee::load::Task;
 use coffee::{Game, Timer};
 use rayon::prelude::*;
 
-const SCALE_FACTOR: f32 = 0.4;
+const SCALE_FACTOR: f32 = 0.75;
 const OFFSET_FACTOR: f32 = (1.0 - SCALE_FACTOR) / 2.0;
 
 const STARTING_N: isize = 32;
@@ -16,7 +16,8 @@ const TIME_STEPS: usize = 2500;
 
 const PATH_WIDTH: u16 = 3;
 const VECTOR_WIDTH: u16 = 1;
-const VECTOR_ARROW_SIZE: f32 = 1.5;
+const VECTOR_ARROW_SIZE: f32 = 2.0;
+const BORDER_WIDTH: u16 = 2;
 
 // 595756
 const BACKGROUND_COLOR: Color = Color {
@@ -46,6 +47,13 @@ const VECTOR_CIRCLE_COLOR: Color = Color {
     b: 168.0 / 255.0,
     a: 1.0,
 };
+// D4D388
+const BORDER_COLOR: Color = Color {
+    r: 212.0 / 255.0,
+    g: 211.0 / 255.0,
+    b: 136.0 / 255.0,
+    a: 1.0,
+};
 
 pub struct Visualizer {
     coefficients: Vec<(isize, Complex)>,
@@ -58,7 +66,7 @@ impl Visualizer {
     fn recalculate_coefficients(&mut self) {
         self.coefficients = (-self.n..=self.n)
             .into_par_iter()
-            .map(|n| (n, calculate_fourier_coefficient(functions::step, n)))
+            .map(|n| (n, calculate_fourier_coefficient(functions::sin, n)))
             .collect::<Vec<_>>();
     }
 
@@ -155,6 +163,22 @@ impl Visualizer {
             // Continue the next vector at the tip of this one
             last_pos = new_pos;
         }
+
+        /*
+            Render container box
+        */
+        let mut mesh = Mesh::new();
+        mesh.stroke(
+            Shape::Rectangle(Rectangle {
+                x: width * OFFSET_FACTOR,
+                y: height * OFFSET_FACTOR,
+                width: width * SCALE_FACTOR,
+                height: height * SCALE_FACTOR,
+            }),
+            BORDER_COLOR,
+            BORDER_WIDTH,
+        );
+        mesh.draw(&mut target);
     }
 }
 
