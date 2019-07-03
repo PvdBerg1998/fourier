@@ -14,11 +14,13 @@ use rayon::prelude::*;
 const STARTING_N: isize = 16;
 const N_CHANGE: isize = 2;
 
+// @todo slow down time (increase steps) when zooming in? or as another option
+// perhaps add a UI for all the options
 const TIME_STEPS: usize = 1500;
 
 const PATH_WIDTH: f32 = 4.0;
 const VECTOR_WIDTH: f32 = 2.0;
-const VECTOR_CIRCLE_WIDTH: f32 = 1.0;
+const VECTOR_CIRCLE_WIDTH: f32 = 1.5;
 const VECTOR_HEAD_ANGLE: f64 = 0.5;
 const VECTOR_HEAD_LENGTH_FACTOR: f64 = 0.1;
 
@@ -178,7 +180,7 @@ impl Game for Visualizer {
     fn load(_window: &Window) -> Task<Visualizer> {
         Task::new(|| {
             let mut v = Visualizer {
-                f: Box::new(math::functions::step),
+                f: Box::new(math::functions::tent),
                 coefficients: Vec::new(),
                 n: STARTING_N,
                 progress: 0,
@@ -235,8 +237,10 @@ impl Game for Visualizer {
         // Many thanks to Héctor Ramón for this linear algebra
         let space_to_frame = frame.width() / math::functions::FULL_SPACE_SIZE as f32;
         let zoom = self.zoom_factor as f32 * space_to_frame;
-        let half_frame = Vector::new(frame.width() / 2.0, frame.height() / 2.0);
-        let mut transform = Transformation::translate(half_frame) * Transformation::scale(zoom);
+        let center_shift = Vector::new(frame.width() / 2.0, frame.height() / 2.0);
+        let mut transform = Transformation::translate(center_shift)
+            * Transformation::scale(zoom)
+            * Transformation::nonuniform_scale(1.0, -1.0);
         if self.zoom_factor > 1 {
             transform = transform * Transformation::translate(-last_vector);
         }

@@ -21,20 +21,23 @@ pub fn step(t: Real) -> Complex {
     }
 }
 
-// @todo shift these functions properly
-
-/*
 pub fn tent(t: Real) -> Complex {
     if t < 0.5 {
         Complex::new(
             t * FULL_SPACE_SIZE - HALF_SPACE_SIZE,
-            FULL_SPACE_SIZE - (t * 2.0),
+            t * FULL_SPACE_SIZE * 2.0 - HALF_SPACE_SIZE,
         )
     } else {
-        Complex::new(t, (t - 0.5) * 2.0)
+        Complex::new(
+            t * FULL_SPACE_SIZE - HALF_SPACE_SIZE,
+            HALF_SPACE_SIZE - (t - 0.5) * FULL_SPACE_SIZE * 2.0,
+        )
     }
 }
 
+// @todo shift these functions properly
+
+/*
 pub fn cube(t: Real) -> Complex {
     if t < 0.25 {
         // Top

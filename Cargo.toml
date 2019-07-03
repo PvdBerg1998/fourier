@@ -8,7 +8,7 @@ edition = "2018"
 coffee = { git = "https://github.com/hecrj/coffee", branch = "master" }
 
 [dependencies]
-coffee = { version = "^0.3.1", features = ["vulkan", "debug"] }
+coffee = { version = "^0.3.1", features = ["opengl", "debug"] }
 num-complex = "^0.2.3"
 rand = { version = "^0.7.0", features = ["small_rng"] }
 rand_distr = "^0.2.1"
