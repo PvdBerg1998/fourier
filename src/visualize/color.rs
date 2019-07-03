@@ -1,33 +1,23 @@
 use coffee::graphics::Color;
 
-// #595756
-pub const BACKGROUND_COLOR: Color = Color {
-    r: 89.0 / 255.0,
-    g: 87.0 / 255.0,
-    b: 86.0 / 255.0,
-    a: 1.0,
-};
+pub const BACKGROUND_COLOR: Color = Color::BLACK;
 
-// #BB8254
+// #CDD24E
 pub const PATH_COLOR: Color = Color {
-    r: 187.0 / 255.0,
-    g: 130.0 / 255.0,
-    b: 84.0 / 255.0,
+    r: 205.0 / 255.0,
+    g: 210.0 / 255.0,
+    b: 78.0 / 255.0,
     a: 1.0,
 };
 
-// #E5D09D
-pub const VECTOR_COLOR: Color = Color {
-    r: 229.0 / 255.0,
-    g: 208.0 / 255.0,
-    b: 157.0 / 255.0,
-    a: 1.0,
-};
+pub const VECTOR_COLOR: Color = Color::WHITE;
 
 // #807F6E
 pub const VECTOR_CIRCLE_COLOR: Color = Color {
-    r: 128.0 / 255.0,
-    g: 127.0 / 255.0,
-    b: 110.0 / 255.0,
-    a: 1.0,
+    r: 41.0 / 255.0,
+    g: 171.0 / 255.0,
+    b: 202.0 / 255.0,
+    a: 0.1,
 };
+
+pub const VECTOR_CIRCLE_COLOR_STDDEV: f32 = 0.1;

@@ -1,12 +1,14 @@
 mod color;
 
-use crate::math;
-use crate::math::{Complex, Real};
-use coffee::graphics::*;
-use coffee::input::keyboard::KeyCode;
-use coffee::input::KeyboardAndMouse;
-use coffee::load::Task;
-use coffee::{Game, Timer};
+use crate::math::{self, Complex, Real};
+use coffee::{
+    graphics::*,
+    input::{keyboard::KeyCode, KeyboardAndMouse},
+    load::Task,
+    Game, Timer,
+};
+use rand::{rngs::SmallRng, SeedableRng};
+use rand_distr::{Distribution, Normal};
 use rayon::prelude::*;
 
 const STARTING_N: isize = 16;
@@ -14,9 +16,11 @@ const N_CHANGE: isize = 2;
 
 const TIME_STEPS: usize = 1500;
 
-const PATH_WIDTH: u16 = 4;
-const VECTOR_WIDTH: u16 = 2;
-const VECTOR_DOT_RADIUS: f32 = 3.0;
+const PATH_WIDTH: f32 = 4.0;
+const VECTOR_WIDTH: f32 = 2.0;
+const VECTOR_CIRCLE_WIDTH: f32 = 1.0;
+const VECTOR_HEAD_ANGLE: f64 = 0.5;
+const VECTOR_HEAD_LENGTH_FACTOR: f64 = 0.1;
 
 // @todo add function change button. maybe change math::functions to enum
 pub struct Visualizer {
@@ -54,7 +58,11 @@ impl Visualizer {
             .map(|t| math::superposition(coefficients, t))
             .map(|c| Point::new(c.re as f32, c.im as f32))
             .collect::<Vec<_>>();
-        mesh.stroke(Shape::Polyline { points }, color::PATH_COLOR, PATH_WIDTH);
+        mesh.stroke(
+            Shape::Polyline { points },
+            color::PATH_COLOR,
+            PATH_WIDTH / self.zoom_factor as f32,
+        );
         mesh
     }
 
@@ -67,6 +75,7 @@ impl Visualizer {
             .collect::<Vec<_>>();
 
         // Draw vector arrows, starting at the end of the last one
+        let mut rng = SmallRng::seed_from_u64(0);
         let mut last_pos = Complex::new(0.0, 0.0);
         let meshes = vectors
             .into_iter()
@@ -81,26 +90,73 @@ impl Visualizer {
                         points: vec![last_pos.into_point(), next_pos.into_point()],
                     },
                     color::VECTOR_COLOR,
-                    VECTOR_WIDTH,
+                    VECTOR_WIDTH / self.zoom_factor as f32,
                 );
 
-                // Vector dot @todo replace with actual arrows?
+                // Vector head
+                let head_bottom_left = Complex::new(
+                    next_pos.re
+                        + VECTOR_HEAD_LENGTH_FACTOR
+                            * ((last_pos.re - next_pos.re) * VECTOR_HEAD_ANGLE.cos()
+                                + (last_pos.im - next_pos.im) * VECTOR_HEAD_ANGLE.sin()),
+                    next_pos.im
+                        + VECTOR_HEAD_LENGTH_FACTOR
+                            * ((last_pos.im - next_pos.im) * VECTOR_HEAD_ANGLE.cos()
+                                - (last_pos.re - next_pos.re) * VECTOR_HEAD_ANGLE.sin()),
+                );
+                let head_bottom_right = Complex::new(
+                    next_pos.re
+                        + VECTOR_HEAD_LENGTH_FACTOR
+                            * ((last_pos.re - next_pos.re) * VECTOR_HEAD_ANGLE.cos()
+                                - (last_pos.im - next_pos.im) * VECTOR_HEAD_ANGLE.sin()),
+                    next_pos.im
+                        + VECTOR_HEAD_LENGTH_FACTOR
+                            * ((last_pos.im - next_pos.im) * VECTOR_HEAD_ANGLE.cos()
+                                + (last_pos.re - next_pos.re) * VECTOR_HEAD_ANGLE.sin()),
+                );
                 mesh.fill(
-                    Shape::Circle {
-                        center: next_pos.into_point(),
-                        radius: VECTOR_DOT_RADIUS,
+                    Shape::Polyline {
+                        points: vec![
+                            next_pos.into_point(),
+                            head_bottom_left.into_point(),
+                            head_bottom_right.into_point(),
+                        ],
                     },
                     color::VECTOR_COLOR,
                 );
 
                 // Vector path circle
+                // Determine random color for this circle
+                // No this is not overkill
+                let circle_color = Color {
+                    r: Normal::new(
+                        color::VECTOR_CIRCLE_COLOR.r,
+                        color::VECTOR_CIRCLE_COLOR_STDDEV,
+                    )
+                    .unwrap()
+                    .sample(&mut rng),
+                    g: Normal::new(
+                        color::VECTOR_CIRCLE_COLOR.g,
+                        color::VECTOR_CIRCLE_COLOR_STDDEV,
+                    )
+                    .unwrap()
+                    .sample(&mut rng),
+                    b: Normal::new(
+                        color::VECTOR_CIRCLE_COLOR.b,
+                        color::VECTOR_CIRCLE_COLOR_STDDEV,
+                    )
+                    .unwrap()
+                    .sample(&mut rng),
+                    a: color::VECTOR_CIRCLE_COLOR.a,
+                };
+
                 mesh.stroke(
                     Shape::Circle {
                         center: last_pos.into_point(),
                         radius: vector.norm() as f32,
                     },
-                    color::VECTOR_CIRCLE_COLOR,
-                    VECTOR_WIDTH,
+                    circle_color,
+                    VECTOR_CIRCLE_WIDTH / self.zoom_factor as f32,
                 );
 
                 // Continue the next vector at the tip of this one
@@ -114,9 +170,10 @@ impl Visualizer {
 }
 
 impl Game for Visualizer {
-    const TICKS_PER_SECOND: u16 = 60;
     type Input = KeyboardAndMouse;
     type LoadingScreen = ();
+
+    const TICKS_PER_SECOND: u16 = 60;
 
     fn load(_window: &Window) -> Task<Visualizer> {
         Task::new(|| {
@@ -153,10 +210,10 @@ impl Game for Visualizer {
 
         // Zoom
         if input.was_key_released(KeyCode::Right) {
-            self.zoom_factor += 1;
+            self.zoom_factor *= 2;
         } else if input.was_key_released(KeyCode::Left) {
             if self.zoom_factor > 1 {
-                self.zoom_factor -= 1;
+                self.zoom_factor /= 2;
             }
         }
     }
@@ -175,21 +232,14 @@ impl Game for Visualizer {
         let path_mesh = self.path_mesh();
         let (last_vector, vector_meshes) = self.vector_meshes();
 
-        let transform = if self.zoom_factor == 1 {
-            Transformation::scale(frame.width() / math::functions::FULL_SPACE_SIZE as f32)
-                * Transformation::translate(Vector::new(
-                    math::functions::HALF_SPACE_SIZE as f32,
-                    math::functions::HALF_SPACE_SIZE as f32,
-                )) // * Transformation::nonuniform_scale(1.0, -1.0)
-        } else {
-            Transformation::scale(
-                self.zoom_factor as f32 * frame.width() / math::functions::FULL_SPACE_SIZE as f32,
-            ) * Transformation::translate(-last_vector)
-                * Transformation::translate(Vector::new(
-                    math::functions::HALF_SPACE_SIZE as f32,
-                    math::functions::HALF_SPACE_SIZE as f32,
-                )) // * Transformation::nonuniform_scale(1.0, -1.0)
-        };
+        // Many thanks to Héctor Ramón for this linear algebra
+        let space_to_frame = frame.width() / math::functions::FULL_SPACE_SIZE as f32;
+        let zoom = self.zoom_factor as f32 * space_to_frame;
+        let half_frame = Vector::new(frame.width() / 2.0, frame.height() / 2.0);
+        let mut transform = Transformation::translate(half_frame) * Transformation::scale(zoom);
+        if self.zoom_factor > 1 {
+            transform = transform * Transformation::translate(-last_vector);
+        }
 
         frame.clear(color::BACKGROUND_COLOR);
         let mut target = frame.as_target();
@@ -211,6 +261,7 @@ impl ComplexToCoffee for Complex {
     fn into_point(self) -> Point {
         Point::new(self.re as f32, self.im as f32)
     }
+
     fn into_vector(self) -> Vector {
         Vector::new(self.re as f32, self.im as f32)
     }
