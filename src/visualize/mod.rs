@@ -1,4 +1,5 @@
-mod color;
+mod definitions;
+mod fourier;
 
 use crate::math::{self, Complex, Real};
 use coffee::{
@@ -7,209 +8,39 @@ use coffee::{
     load::Task,
     Game, Timer,
 };
-use rand::{rngs::SmallRng, SeedableRng};
-use rand_distr::{Distribution, Normal};
-use rayon::prelude::*;
+use definitions::*;
+use fourier::*;
 
-const STARTING_TICKS: usize = 1000;
-const TICK_CHANGE: usize = 500;
-const STARTING_N: isize = 16;
-const N_CHANGE: isize = 2;
-
-const PATH_WIDTH: f32 = 4.0;
-const VECTOR_WIDTH: f32 = 2.0;
-const VECTOR_CIRCLE_WIDTH: f32 = 1.5;
-const VECTOR_HEAD_ANGLE: f64 = 0.5;
-const VECTOR_HEAD_LENGTH_FACTOR: f64 = 0.1;
-
-// @fixme increasing ticks slows down time, but also increases the mesh size -> crashes at a certain point.
-
-// @todo add function change button. maybe change math::functions to enum
 pub struct Visualizer {
-    f: Box<dyn Fn(Real) -> Complex + Send + Sync + 'static>,
-    coefficients: Vec<(isize, Complex)>,
-    n: isize,
-    current_tick: usize,
-    max_ticks: usize,
+    fourier: Fourier,
+    progress: Real,
+    progress_increase: Real,
     drawing_completed: bool,
     zoom_factor: u16,
-}
-
-fn current_tick_as_time(current_tick: usize, max_ticks: usize) -> f64 {
-    1.0 / max_ticks as f64 * current_tick as f64
-}
-
-impl Visualizer {
-    fn recalculate_coefficients(&mut self) {
-        self.coefficients = (-self.n..=self.n)
-            .into_par_iter()
-            .map(|n| (n, math::calculate_fourier_coefficient(|t| (self.f)(t), n)))
-            .collect::<Vec<_>>();
-    }
-
-    fn path_mesh(&self) -> Mesh {
-        let mut mesh = Mesh::new();
-        let coefficients = self.coefficients.as_slice();
-        let target_tick = if self.drawing_completed {
-            self.max_ticks
-        } else {
-            self.current_tick
-        };
-        let points = (0..=target_tick)
-            .into_par_iter()
-            .map(|t| current_tick_as_time(t, self.max_ticks))
-            .map(|t| math::superposition(coefficients, t))
-            .map(ComplexToCoffee::into_point)
-            .collect::<Vec<_>>();
-        mesh.stroke(
-            Shape::Polyline { points },
-            color::PATH_COLOR,
-            PATH_WIDTH / self.zoom_factor as f32,
-        );
-        mesh
-    }
-
-    fn vector_meshes(&self) -> (Vector, Vec<Mesh>) {
-        let time = current_tick_as_time(self.current_tick, self.max_ticks);
-        let vectors = self
-            .coefficients
-            .iter()
-            .map(|(n, coefficient)| math::eval_term(*coefficient, *n, time))
-            .collect::<Vec<_>>();
-
-        // Draw vector arrows, starting at the end of the last one
-        let mut rng = SmallRng::seed_from_u64(0);
-        let mut last_pos = Complex::new(0.0, 0.0);
-        let meshes = vectors
-            .into_iter()
-            .map(|vector| {
-                // Add current vector to the last position
-                let next_pos = last_pos + vector;
-                let mut mesh = Mesh::new();
-
-                // Vector line
-                mesh.stroke(
-                    Shape::Polyline {
-                        points: vec![last_pos.into_point(), next_pos.into_point()],
-                    },
-                    color::VECTOR_COLOR,
-                    VECTOR_WIDTH / self.zoom_factor as f32,
-                );
-
-                // Vector head
-                let head_bottom_left = Complex::new(
-                    next_pos.re
-                        + VECTOR_HEAD_LENGTH_FACTOR
-                            * ((last_pos.re - next_pos.re) * VECTOR_HEAD_ANGLE.cos()
-                                + (last_pos.im - next_pos.im) * VECTOR_HEAD_ANGLE.sin()),
-                    next_pos.im
-                        + VECTOR_HEAD_LENGTH_FACTOR
-                            * ((last_pos.im - next_pos.im) * VECTOR_HEAD_ANGLE.cos()
-                                - (last_pos.re - next_pos.re) * VECTOR_HEAD_ANGLE.sin()),
-                );
-                let head_bottom_right = Complex::new(
-                    next_pos.re
-                        + VECTOR_HEAD_LENGTH_FACTOR
-                            * ((last_pos.re - next_pos.re) * VECTOR_HEAD_ANGLE.cos()
-                                - (last_pos.im - next_pos.im) * VECTOR_HEAD_ANGLE.sin()),
-                    next_pos.im
-                        + VECTOR_HEAD_LENGTH_FACTOR
-                            * ((last_pos.im - next_pos.im) * VECTOR_HEAD_ANGLE.cos()
-                                + (last_pos.re - next_pos.re) * VECTOR_HEAD_ANGLE.sin()),
-                );
-                mesh.fill(
-                    Shape::Polyline {
-                        points: vec![
-                            next_pos.into_point(),
-                            head_bottom_left.into_point(),
-                            head_bottom_right.into_point(),
-                        ],
-                    },
-                    color::VECTOR_COLOR,
-                );
-
-                // Vector path circle
-                // Determine random color for this circle
-                // No this is not overkill
-                let circle_color = Color {
-                    r: Normal::new(
-                        color::VECTOR_CIRCLE_COLOR.r,
-                        color::VECTOR_CIRCLE_COLOR_STDDEV,
-                    )
-                    .unwrap()
-                    .sample(&mut rng),
-                    g: Normal::new(
-                        color::VECTOR_CIRCLE_COLOR.g,
-                        color::VECTOR_CIRCLE_COLOR_STDDEV,
-                    )
-                    .unwrap()
-                    .sample(&mut rng),
-                    b: Normal::new(
-                        color::VECTOR_CIRCLE_COLOR.b,
-                        color::VECTOR_CIRCLE_COLOR_STDDEV,
-                    )
-                    .unwrap()
-                    .sample(&mut rng),
-                    a: color::VECTOR_CIRCLE_COLOR.a,
-                };
-
-                mesh.stroke(
-                    Shape::Circle {
-                        center: last_pos.into_point(),
-                        radius: vector.norm() as f32,
-                    },
-                    circle_color,
-                    VECTOR_CIRCLE_WIDTH / self.zoom_factor as f32,
-                );
-
-                // Continue the next vector at the tip of this one
-                last_pos = next_pos;
-
-                mesh
-            })
-            .collect();
-        (last_pos.into_vector(), meshes)
-    }
 }
 
 impl Game for Visualizer {
     type Input = KeyboardAndMouse;
     type LoadingScreen = ();
 
-    const TICKS_PER_SECOND: u16 = 60;
+    const TICKS_PER_SECOND: u16 = UPS;
 
     fn load(_window: &Window) -> Task<Visualizer> {
-        Task::new(|| {
-            let mut v = Visualizer {
-                f: Box::new(math::functions::step),
-                coefficients: Vec::new(),
-                n: STARTING_N,
-                current_tick: 0,
-                max_ticks: STARTING_TICKS,
-                drawing_completed: false,
-                zoom_factor: 1,
-            };
-            v.recalculate_coefficients();
-            v
+        Task::succeed(|| Visualizer {
+            fourier: Fourier::new(DEFAULT_FN, DEFAULT_N),
+            progress: 0.0,
+            progress_increase: DEFAULT_SPEED,
+            drawing_completed: false,
+            zoom_factor: 1,
         })
     }
 
     fn interact(&mut self, input: &mut Self::Input, _window: &mut Window) {
         // Change N
         if input.was_key_released(KeyCode::Up) {
-            self.n += N_CHANGE;
-            self.current_tick = 0;
-            self.drawing_completed = false;
-            println!("Increased n to {}", self.n);
-            self.recalculate_coefficients();
+            self.fourier.change_n(N_CHANGE);
         } else if input.was_key_released(KeyCode::Down) {
-            if self.n > N_CHANGE {
-                self.n -= N_CHANGE;
-                self.current_tick = 0;
-                self.drawing_completed = false;
-                println!("Decreased n to {}", self.n);
-                self.recalculate_coefficients();
-            }
+            self.fourier.change_n(-N_CHANGE);
         }
 
         // Zoom
@@ -221,47 +52,55 @@ impl Game for Visualizer {
             }
         }
 
-        // Change ticks
+        // Speed
         if input.was_key_released(KeyCode::PageUp) {
-            self.max_ticks *= 2;
-            self.current_tick *= 2;
-            if self.current_tick > self.max_ticks {
-                self.current_tick -= self.max_ticks;
-            }
+            self.progress_increase *= 2.0;
         } else if input.was_key_released(KeyCode::PageDown) {
-            if self.max_ticks > TICK_CHANGE {
-                self.max_ticks /= 2;
-                self.current_tick /= 2;
-            }
+            self.progress_increase /= 2.0;
+        }
+
+        // Function
+        if input.was_key_released(KeyCode::Space) {
+            self.fourier.next_f();
+            self.drawing_completed = false;
+            self.progress = 0.0;
         }
     }
 
     fn update(&mut self, _window: &Window) {
-        if self.current_tick < self.max_ticks {
-            self.current_tick += 1;
-            if self.current_tick == self.max_ticks {
-                self.drawing_completed = true;
-                self.current_tick = 0;
-            }
+        self.progress += self.progress_increase;
+        if self.progress > 1.0 {
+            self.drawing_completed = true;
+            self.progress -= 1.0;
         }
     }
 
     fn draw(&mut self, frame: &mut Frame, _timer: &Timer) {
-        let path_mesh = self.path_mesh();
-        let (last_vector, vector_meshes) = self.vector_meshes();
+        let path_mesh = self.fourier.into_path_mesh(
+            if self.drawing_completed {
+                1.0
+            } else {
+                self.progress
+            },
+            1.0 / self.zoom_factor as f32,
+        );
 
+        let (last_vector, vector_meshes) = self
+            .fourier
+            .into_vector_meshes(self.progress, 1.0 / self.zoom_factor as f32);
+
+        // Scale and translate the math output space to the frame
         // Many thanks to Héctor Ramón for this linear algebra
-        let space_to_frame = frame.width() / math::functions::FULL_SPACE_SIZE as f32;
-        let zoom = self.zoom_factor as f32 * space_to_frame;
+        let scale = self.zoom_factor as f32 * frame.width() / math::functions::FULL_SPACE as f32;
         let center_shift = Vector::new(frame.width() / 2.0, frame.height() / 2.0);
         let mut transform = Transformation::translate(center_shift)
-            * Transformation::scale(zoom)
+            * Transformation::scale(scale)
             * Transformation::nonuniform_scale(1.0, -1.0);
         if self.zoom_factor > 1 {
             transform = transform * Transformation::translate(-last_vector);
         }
 
-        frame.clear(color::BACKGROUND_COLOR);
+        frame.clear(BACKGROUND_COLOR);
         let mut target = frame.as_target();
         let mut target = target.transform(transform);
 
@@ -272,12 +111,12 @@ impl Game for Visualizer {
     }
 }
 
-trait ComplexToCoffee {
+pub trait ComplexToNalgebra {
     fn into_point(self) -> Point;
     fn into_vector(self) -> Vector;
 }
 
-impl ComplexToCoffee for Complex {
+impl ComplexToNalgebra for Complex {
     fn into_point(self) -> Point {
         Point::new(self.re as f32, self.im as f32)
     }

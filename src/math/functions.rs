@@ -1,36 +1,58 @@
 use super::{Complex, Real};
 
-pub const HALF_SPACE_SIZE: f64 = 1000.0;
-pub const FULL_SPACE_SIZE: f64 = HALF_SPACE_SIZE * 2.0;
+pub const FULL_SPACE: f64 = 2000.0;
+pub const HALF_SPACE: f64 = FULL_SPACE / 2.0;
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Function {
+    Step,
+    Tent,
+}
+
+impl Function {
+    pub fn execute(self, t: Real) -> Complex {
+        match self {
+            Function::Step => step(t),
+            Function::Tent => tent(t),
+        }
+    }
+
+    pub fn next(self) -> Self {
+        match self {
+            Function::Step => Function::Tent,
+            Function::Tent => Function::Step,
+        }
+    }
+}
 
 /*
     Functions f(t) → c
     where t ∈ [0, 1]
-    where ℜ(c) ∈ [-HALF_SPACE_SIZE, HALF_SPACE_SIZE], ℑ(c) ∈ [-HALF_SPACE_SIZE, HALF_SPACE_SIZE]
+    where ℜ(c) ∈ [-1.0, 1.0], ℑ(c) ∈ [-1.0, 1.0]
 */
 
 pub fn step(t: Real) -> Complex {
     if t < 0.25 {
-        Complex::new(t * FULL_SPACE_SIZE - HALF_SPACE_SIZE, 0.0)
+        Complex::new(t * FULL_SPACE - HALF_SPACE, 0.0)
     } else if t < 0.5 {
-        Complex::new(t * FULL_SPACE_SIZE - HALF_SPACE_SIZE, HALF_SPACE_SIZE)
+        Complex::new(t * FULL_SPACE - HALF_SPACE, HALF_SPACE)
     } else if t < 0.75 {
-        Complex::new(t * FULL_SPACE_SIZE - HALF_SPACE_SIZE, -HALF_SPACE_SIZE)
+        Complex::new(t * FULL_SPACE - HALF_SPACE, -HALF_SPACE)
     } else {
-        Complex::new(t * FULL_SPACE_SIZE - HALF_SPACE_SIZE, 0.0)
+        Complex::new(t * FULL_SPACE - HALF_SPACE, 0.0)
     }
 }
 
 pub fn tent(t: Real) -> Complex {
     if t < 0.5 {
         Complex::new(
-            t * FULL_SPACE_SIZE - HALF_SPACE_SIZE,
-            t * FULL_SPACE_SIZE * 2.0 - HALF_SPACE_SIZE,
+            t * FULL_SPACE - HALF_SPACE,
+            t * FULL_SPACE * 2.0 - HALF_SPACE,
         )
     } else {
         Complex::new(
-            t * FULL_SPACE_SIZE - HALF_SPACE_SIZE,
-            HALF_SPACE_SIZE - (t - 0.5) * FULL_SPACE_SIZE * 2.0,
+            t * FULL_SPACE - HALF_SPACE,
+            HALF_SPACE - (t - 0.5) * FULL_SPACE * 2.0,
         )
     }
 }

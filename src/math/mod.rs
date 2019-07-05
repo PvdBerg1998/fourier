@@ -55,15 +55,19 @@ pub fn eval_term(coefficient: Complex, n: isize, t: Real) -> Complex {
 }
 
 pub fn integrate(f: impl Fn(Real) -> Real, a: Real, b: Real, step: Real) -> Real {
-    let mut acc = 0.0;
+    let mut acc = 0.0f64;
     let mut x = a;
+    let mut last_f = f(x);
+
     while x < b - step {
-        let x1 = x;
-        let x2 = x + step;
+        let next_x = x + step;
+        let next_f = f(next_x);
 
-        acc += step * (f(x1) + f(x2)) / 2.0;
+        acc += step * (last_f + next_f) / 2.0;
 
-        x = x2;
+        last_f = next_f;
+        x = next_x;
     }
+
     acc
 }
